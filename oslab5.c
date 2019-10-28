@@ -6,6 +6,56 @@
 #include <limits.h>
 
 FILE * commandsfptr;
+struct current_pids *head_pid;
+
+struct current_pids{
+	int pid;
+	struct current_pids *next;
+};
+
+
+int insert_pid(int pid){
+	struct current_pids *node = (struct current_pids *)malloc(
+		sizeof(struct current_pids));
+	struct current_pids *loop_node;
+
+	node->pid = pid;
+	node->next = NULL;
+
+	/* Go through everything */
+	loop_node = head_pid;
+
+	while (loop_node->next != NULL){
+		loop_node = loop_node->next;
+	}
+
+	loop_node->next = node;
+
+	return 1;
+}
+
+int delete_pid(int pid){
+	struct current_pids *loop_node;
+	struct current_pids *prev;
+
+	loop_node = head_pid;
+	prev = head_pid;
+
+	while(loop_node != NULL){
+
+		if (loop_node->pid == pid){
+			prev->next = loop_node->next;
+			free(loop_node);
+			break;
+		}
+
+		prev = loop_node;
+		loop_node = loop_node->next;
+	}
+
+	return 1;
+}
+
 
 #define RSH_RL_BUFSIZE 1024
 char *rsh_read_line(void)
@@ -91,7 +141,7 @@ int rsh_launch(char **args)
   int status;
   FILE *fptr;
   fptr =fopen("pidhist.txt","a");
-  int i=0,flag=0;
+  int i=0,background=0;
   while(args[i]!=NULL)
   {
      i++;
@@ -99,7 +149,7 @@ int rsh_launch(char **args)
   if(strncmp(args[i-1],"&",1)==0)
   {
     args[i-1]=NULL;
-    flag=1;
+    background=1;
   }
 
 
@@ -118,46 +168,31 @@ int rsh_launch(char **args)
     // Parent process
     fprintf(fptr,"%s %d\n",args[0],pid);
     fclose(fptr);
-    // while(args[i]!=NULL)
-    // {
-    //   i++;
-    // }
-    // int j=0;
-    // while(args[i-1][j]!=NULL)
-    // {
-    //   j++;
-    // }
-    
-    if(flag>0)
+    if(background>0)
     {
-      // FILE * current_pid_fptr = fopen("current_pid.txt","r");
-      // fprintf(current_pid_fptr,"%s %d\n",args[0],pid);
-      
-      waitpid(pid, &status, WNOHANG);
-      
-      // fseek(current_pid_fptr,0,SEEK_SET);
-      // char str1[50];
-      // while(fscanf(current_pid_fptr, "%[^\n]", str1))
-      // {
-
-      // }
-      //  fclose(current_pid_fptr);
-
-
-    
+      insert_pid(pid);
     }
     else
     {
-      do
-      {
-        wpid = waitpid(pid, &status, WUNTRACED);
-      } while (!WIFEXITED(status) && !WIFSIGNALED(status));
+      wait(NULL);
     }
-    
+   
   }
 
   return 1;
 }
+
+void sigchld_handler(int signum){
+	pid_t pid;
+	pid = waitpid(-1, NULL, WNOHANG);
+
+	if ((pid != -1) && (pid != 0)){
+		//printf("  [~%d]\n", pid);
+		delete_pid(pid);
+	}
+	return;
+}
+
 
 
 /*
@@ -380,6 +415,19 @@ int rsh_pid_all()
   fclose(fptr);
   return 1;
 }
+int rsh_pid_current()
+{
+  struct current_pids *loop_node;
+
+	loop_node = head_pid;
+
+	while(loop_node != NULL)
+  {
+		printf("PID:\t%d\n", loop_node->pid);
+		loop_node = loop_node->next;
+	}
+  return 1;
+}
 
 
 
@@ -411,6 +459,8 @@ int rsh_execute(char **args)
   }
   else if((strncmp(args[0],"pid",strlen("pid"))==0 )&&(args[1]!=NULL) &&(strncmp(args[1],"all",strlen("all"))==0))
     return rsh_pid_all();
+  else if((strncmp(args[0],"pid",strlen("pid"))==0 )&&(args[1]!=NULL)&& (strncmp(args[1],"current",strlen("current"))==0))
+    return rsh_pid_current();
   else
   {
     for (i = 0; i < rsh_num_builtins(); i++)
@@ -469,16 +519,41 @@ int rsh_loop(void)
   fclose(commandsfptr);
 }
 
+int rsh_clean_up(){
+	//printf("Cleaning up...\n");
+
+	struct current_pids *loop_node;
+	struct current_pids *next;
+
+  remove("pidhist.txt");
+
+
+	loop_node = head_pid;
+
+	while(loop_node != NULL){
+		next = loop_node->next;
+		free(loop_node);
+		loop_node = next;
+	}
+
+	return 1;
+}
+
 
 
 int main(int argc, char **argv)
 {
   // Load config files, if any.
 
+  head_pid = (struct current_pids *)malloc(sizeof(struct current_pids));
+	head_pid->pid = getpid();
+	head_pid->next = NULL;
+	signal(SIGCHLD, sigchld_handler);
+
   // Run command loop.
   rsh_loop();
 
   // Perform any shutdown/cleanup.
-  remove("pidhist.txt");
+  rsh_clean_up();
   return EXIT_SUCCESS;
 }

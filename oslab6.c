@@ -7,6 +7,57 @@
 #include <fcntl.h>
 
 FILE * commandsfptr;
+struct current_pids *head_pid;
+
+struct current_pids{
+	int pid;
+	struct current_pids *next;
+};
+
+
+int insert_pid(int pid){
+	struct current_pids *node = (struct current_pids *)malloc(
+		sizeof(struct current_pids));
+	struct current_pids *loop_node;
+
+	node->pid = pid;
+	node->next = NULL;
+
+	/* Go through everything */
+	loop_node = head_pid;
+
+	while (loop_node->next != NULL){
+		loop_node = loop_node->next;
+	}
+
+	loop_node->next = node;
+
+	return 1;
+}
+
+int delete_pid(int pid){
+	struct current_pids *loop_node;
+	struct current_pids *prev;
+
+	loop_node = head_pid;
+	prev = head_pid;
+
+	while(loop_node != NULL){
+
+		if (loop_node->pid == pid){
+			prev->next = loop_node->next;
+			free(loop_node);
+			break;
+		}
+
+		prev = loop_node;
+		loop_node = loop_node->next;
+	}
+
+	return 1;
+}
+
+
 
 #define RSH_RL_BUFSIZE 1024
 char *rsh_read_line(void)
@@ -225,13 +276,13 @@ void output_redirect(char *s,char ** args)
 }
 
 
-int rsh_launch(char **args,char** args_new,int type)
+int rsh_launch(char **args,char** args_redirected,int type)
 {
   pid_t pid, wpid;
   int status;
   FILE *fptr;
   fptr =fopen("pidhist.txt","a");
-  int i=0,flag=0;
+  int i=0,background=0;
   while(args[i]!=NULL)
   {
      i++;
@@ -239,7 +290,7 @@ int rsh_launch(char **args,char** args_new,int type)
   if(strncmp(args[i-1],"&",1)==0)
   {
     args[i-1]=NULL;
-    flag=1;
+    background=1;
   }
   pid = fork();
   if (pid == 0) {
@@ -248,13 +299,13 @@ int rsh_launch(char **args,char** args_new,int type)
     //printf("%s\n",output);
     if(type==3)
     {
-      //printf("%s\n",args_new[2]);
-      output_redirect(args_new[2],args);
+      //printf("%s\n",args_redirected[2]);
+      output_redirect(args_redirected[2],args);
     }
     else if(type == 2)
     {
-      //printf("%s\n",args_new[1]);
-      output_redirect(args_new[1],args);
+      //printf("%s\n",args_redirected[1]);
+      output_redirect(args_redirected[1],args);
     }
     else
     {
@@ -275,21 +326,29 @@ int rsh_launch(char **args,char** args_new,int type)
     // Parent process
     fprintf(fptr,"%s %d\n",args[0],pid);
     fclose(fptr);
-    if(flag>0)
+    if(background>0)
     {
-      waitpid(pid, &status, WNOHANG);
+      insert_pid(pid);
     }
     else
     {
-      do
-      {
-        wpid = waitpid(pid, &status, WUNTRACED);
-      } while (!WIFEXITED(status) && !WIFSIGNALED(status));
+      wait(NULL);
     }
     
   }
 
   return 1;
+}
+
+void sigchld_handler(int signum){
+	pid_t pid;
+	pid = waitpid(-1, NULL, WNOHANG);
+
+	if ((pid != -1) && (pid != 0)){
+		//printf("  [~%d]\n", pid);
+		delete_pid(pid);
+	}
+	return;
 }
 
 
@@ -359,7 +418,6 @@ int rsh_help(char **args)
 
 int rsh_exit(char **args)
 {
-  remove("commandslist2.txt");
   return 0;
 }
 
@@ -503,9 +561,23 @@ int rsh_pid_all()
   return 1;
 }
 
+int rsh_pid_current()
+{
+  struct current_pids *loop_node;
+
+	loop_node = head_pid;
+
+	while(loop_node != NULL)
+  {
+		printf("PID:\t%d\n", loop_node->pid);
+		loop_node = loop_node->next;
+	}
+  return 1;
+}
 
 
-int rsh_execute(char **args,char ** args_new,int type)
+
+int rsh_execute(char **args,char ** args_redirected,int type)
 {
   //printf("hi\n");
   int i;
@@ -529,6 +601,8 @@ int rsh_execute(char **args,char ** args_new,int type)
         return rsh_histn(args,num);
   else if((strncmp(args[0],"pid",strlen("pid"))==0 )&&(args[1]!=NULL)&& (strncmp(args[1],"all",strlen("all"))==0))
     return rsh_pid_all();
+  else if((strncmp(args[0],"pid",strlen("pid"))==0 )&&(args[1]!=NULL)&& (strncmp(args[1],"current",strlen("current"))==0))
+    return rsh_pid_current();
   else
   {
     for (i = 0; i < rsh_num_builtins(); i++) {
@@ -538,9 +612,9 @@ int rsh_execute(char **args,char ** args_new,int type)
       }
     }
   }
-  return rsh_launch(args,args_new,type);
+  return rsh_launch(args,args_redirected,type);
 }
-int rsh_execute_pipe(char**args_new);
+int rsh_execute_pipe(char**args_redirected);
 
 int rsh_loop(void)
 {
@@ -548,7 +622,7 @@ int rsh_loop(void)
   int redirect_type,pipe_exist=0;
   char *line;
   char **args;
-  char **args_new;
+  char **args_redirected;
   int status;
   char cwd[PATH_MAX];
   char cwd2[PATH_MAX];
@@ -582,26 +656,26 @@ int rsh_loop(void)
     if(pipe_exist==0)
     {
       redirect_type = rsh_check_redirection(line);
-      args_new=rsh_redirected(line,redirect_type);
+      args_redirected=rsh_redirected(line,redirect_type);
       if(redirect_type<0 || redirect_type==2)
       {
-          args = rsh_split_line(args_new[0]);
+          args = rsh_split_line(args_redirected[0]);
       }
       else
       {  
           char str1[40];
           char str2[40];
-          strncpy(str1,args_new[0],strlen(args_new[0]));
-          strncpy(str2,args_new[1],strlen(args_new[1]));
+          strncpy(str1,args_redirected[0],strlen(args_redirected[0]));
+          strncpy(str2,args_redirected[1],strlen(args_redirected[1]));
           strcat(strcat(str1," " ),str2);
           args=rsh_split_line(str1);
       }  
-      status = rsh_execute(args,args_new,redirect_type);
+      status = rsh_execute(args,args_redirected,redirect_type);
     }
     else
     {
-      args_new=rsh_piped(line);
-      status=rsh_execute_pipe(args_new);
+      args_redirected=rsh_piped(line);
+      status=rsh_execute_pipe(args_redirected);
     }
     
     
@@ -615,7 +689,7 @@ int rsh_loop(void)
 
 }
 
-int rsh_execute_pipe(char**args_new)
+int rsh_execute_pipe(char**args_redirected)
 {
   pid_t pid1,pid2,wpid;
   int status;
@@ -633,7 +707,7 @@ int rsh_execute_pipe(char**args_new)
   {
      char* args1[10];
            
-    char *token3=strtok(args_new[0]," ");
+    char *token3=strtok(args_redirected[0]," ");
     
     int i=0;
     while (token3!=NULL)
@@ -668,7 +742,7 @@ int rsh_execute_pipe(char**args_new)
   {
     char* args1[10];
            
-    char *token3=strtok(args_new[1]," ");
+    char *token3=strtok(args_redirected[1]," ");
     
     int i=0;
     while (token3!=NULL)
@@ -704,15 +778,41 @@ return 1;
 }
 
 
+int rsh_clean_up(){
+	//printf("Cleaning up...\n");
+
+	struct current_pids *loop_node;
+	struct current_pids *next;
+
+  remove("commandslist2.txt");
+
+
+	loop_node = head_pid;
+
+	while(loop_node != NULL){
+		next = loop_node->next;
+		free(loop_node);
+		loop_node = next;
+	}
+
+	return 1;
+}
+
 
 int main(int argc, char **argv)
 {
   // Load config files, if any.
+  head_pid = (struct current_pids *)malloc(sizeof(struct current_pids));
+	head_pid->pid = getpid();
+	head_pid->next = NULL;
+
+
+	signal(SIGCHLD, sigchld_handler);
 
   // Run command loop.
   rsh_loop();
 
   // Perform any shutdown/cleanup.
-
+  rsh_clean_up();
   return EXIT_SUCCESS;
 }
