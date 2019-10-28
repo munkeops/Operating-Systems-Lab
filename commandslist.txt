@@ -1,0 +1,23 @@
+ls
+ls &
+ls
+ls &
+ls
+ls &
+ls
+ls &
+whoami
+
+
+
+
+
+
+
+
+
+
+
+
+
+

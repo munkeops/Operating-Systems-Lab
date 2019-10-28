@@ -1,0 +1,27 @@
+wc oslab6.c
+wc oslab6.c
+ls      
+wc     oslab6.c
+wc   lab6.c      oslab6.c
+wc oslab6.cab6.c
+wc oslab6.c
+wc oslab6.c
+(null)
+(null)
+(null)
+(null)
+(null)
+(null)
+(null)
+(null)
+(null)
+(null)
+(null)
+(null)
+(null)
+(null)
+(null)
+(null)
+(null)
+(null)
+(null)

@@ -1,0 +1,5 @@
+ls
+whoami
+echo
+man
+wc

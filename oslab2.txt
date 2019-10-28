@@ -1,0 +1,5 @@
+ls
+whoami
+echo how are you today
+man --help
+
