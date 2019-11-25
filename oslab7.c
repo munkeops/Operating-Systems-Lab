@@ -14,10 +14,10 @@ struct map
     int mode;
 };
 
-int search_pfn(struct map* vpns ,int n) 
+int search_pfn(struct map* vpns ,int n,int postn) 
 {
     int j=0;
-    while(j<10)
+    while(j<postn)
     {
         if(vpns[j].PFN==n)
         {
@@ -27,10 +27,10 @@ int search_pfn(struct map* vpns ,int n)
     }
     return 0;
 }
-int search_vpa(uint16_t* x,int n)
+int search_vpa(uint16_t* x,int n,int postn)
 {
-     int j=0;
-    while(j<10)
+    int j=0;
+    while(j<postn)
     {
         if(x[j]==n)
         {
@@ -44,11 +44,8 @@ int search_vpa(uint16_t* x,int n)
 
 void binary_printf(uint32_t n,int size)
 {
-    ;
-    uint16_t num=0;
     int a[size];
     int i=size-1;
-    //int i=15;
     while (n) 
     {
        
@@ -79,19 +76,19 @@ void binary_printf(uint32_t n,int size)
     printf("\n");
     
 }
-void randomize_valid(struct map * vpns)
+void randomize_valid(struct map * vpns,int size)
 {
     int i,v;
-    for(i=0;i<10;i++)
+    for(i=0;i<size;i++)
     {
         v=rand()%2;
         vpns[i].Valid=v;
     }
 }
-void randomize_protect(struct map * vpns)
+void randomize_protect(struct map * vpns,int size)
 {
     int i,k;
-    for(i=0;i<10;i++)
+    for(i=0;i<size;i++)
     {
         k=rand()%10;
         vpns[i].ProtectBits=k;
@@ -100,18 +97,14 @@ void randomize_protect(struct map * vpns)
     
 }
 
-int randomize_pfns(struct map * vpns)
+int randomize_pfns(struct map * vpns,int size)
 {
     int i=0;
-    for(i=0;i<10;i++)
-    {
-        vpns[i].PFN=0;
-    }
-    for(i=0;i<10;i++)
+    for(i=0;i<size;i++)
     {
         uint16_t random_14=rand()%16384;
-        uint16_t vpa[10];
-        if(search_pfn(vpns,random_14)==1)
+        
+        if(search_pfn(vpns,random_14,i)==1)
         {
             i--;
         }
@@ -123,19 +116,19 @@ int randomize_pfns(struct map * vpns)
     }
 }
 
-void randomize_vpas(uint16_t * vpa)
+void randomize_vpas(uint16_t * vpa,int size)
 {
     int i=0;
-    for(i=0;i<10;i++)
+    for(i=0;i<size;i++)
     {
         
         //uint16_t rand_num=0x0400*rand()%64+0001*rand()%1024; testing with 10;
         //int rand_10_vals[10];
-        int rand_10=rand()%10;
+        int rand_10=rand()%size;
         uint16_t rand_num=0x0400+(rand_10<<10)+rand()%1024;
 
 
-        if(search_vpa(vpa,rand_num)==1)
+        if(search_vpa(vpa,rand_num,i)==1)
         {
             i--;
         }
@@ -165,23 +158,28 @@ int CanAccess(int n)
 void main()
 {
 
-    struct map vpns[10];
-    uint16_t vpa[10];
+    
+    int n;
+    printf("Enter number of vpas to generate\n");
+    scanf("%d",&n);
+    struct map vpns[n];
+    uint16_t vpa[n];
 
-
-    randomize_pfns(vpns);
-    randomize_vpas(vpa);
-    randomize_valid(vpns);
-    randomize_protect(vpns);// 3 bits -RWE hence since we are only doing memory access , if R is 0 it wont be able to access
+    randomize_pfns(vpns,n);
+    randomize_vpas(vpa,n);
+    randomize_valid(vpns,n);
+    randomize_protect(vpns,n);// 3 bits -RWE hence since we are only doing memory access , if R is 0 it wont be able to access
     
     int i;
     clock_t start,end;
     double cpu_time;
     double time;
+    int counter=0;
+    double avg_access_time=0;
     int shift=10;
     int OFFSET_MASK=0x03ff;
     int PFN_SHIFT=10;
-    for(i=0;i<10;i++)
+    for(i=0;i<n;i++)
     {
         
         start =clock();
@@ -190,17 +188,20 @@ void main()
         binary_printf(VirtualAddress,16);
         int VPN=VirtualAddress>>shift;
         struct map PTE =vpns[VPN];
-        sleep(1);
+        sleep(0.5);
         if(PTE.Valid==0)
         {
             printf("SEGMENTATION FAULT\n\n");
             continue;
+            end=clock();
+
             //exit(0);
         }
-        sleep(1);
+        sleep(0.5);
         if(CanAccess(PTE.ProtectBits)==0)
         {
             printf("PROTECTION FAULT\n\n");
+            end=clock();
             continue;
             //exit(0);
         }
@@ -214,17 +215,22 @@ void main()
         binary_printf(offset,10);
         printf("PFN : ");
         binary_printf(PTE.PFN,14);
-        sleep(2);
+        sleep(1);
         printf("Physical Address : ");
         binary_printf(PhysAddr,24);
         end=clock();
         time=end-start;
         cpu_time=((double)(end-start))/CLOCKS_PER_SEC;
+        avg_access_time+=cpu_time;
+        counter++;
         //printf("TIME : %e\n",time);
-        printf("CPU TIME : %e\n",cpu_time);        
+        printf("CPU TIME : %e\n",cpu_time);   
+        sleep(1);    
 
         printf("\n");
        
     }
+    avg_access_time=avg_access_time/counter;
+    printf("average access time : %e\n",avg_access_time);
     
 }
