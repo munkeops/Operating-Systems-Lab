@@ -165,9 +165,9 @@ void main()
     struct map vpns[n];
     uint16_t vpa[n];
 
-    randomize_pfns(vpns,n);
-    randomize_vpas(vpa,n);
-    randomize_valid(vpns,n);
+    randomize_pfns(vpns,n);//randomising the page frames
+    randomize_vpas(vpa,n);// randomise the virtual addresses
+    randomize_valid(vpns,n);// randomise the valid bits
     randomize_protect(vpns,n);// 3 bits -RWE hence since we are only doing memory access , if R is 0 it wont be able to access
     
     int i;

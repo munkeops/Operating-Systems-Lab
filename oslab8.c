@@ -211,20 +211,12 @@ void randomize_vpas(uint16_t * vpa,int size)
     for(i=0;i<size;i++)
     {
         
-        //uint16_t rand_num=0x0400*rand()%64+0001*rand()%1024; testing with 10;
-        //int rand_10_vals[10];
-        int rand_10=rand()%size;
+        
+        int rand_10=rand()%25;
         uint16_t rand_num=0x0400+(rand_10<<10)+rand()%1024;
 
-
-        //if(search_vpa(vpa,rand_num,i)==1)
-        //{
-          //  i--;
-        //}
-        //else
-        //{
-            vpa[i]=rand_num;            
-        //}
+        vpa[i]=rand_num;            
+       
         
     }
 }
@@ -251,19 +243,19 @@ void main()
 
     
     int n;
-    tlb_position=0;
+    tlb_position=0;//global vairbale for lru to continue searching from the last accesed point
     printf("Enter number of vpas to generate\n");
     scanf("%d",&n);
-    struct map vpns[n];
-    uint16_t vpa[n];
-    uint16_t vpbatch[n];
+    struct map vpns[n];// the page table
+    uint16_t vpa[n];// array of virtual adresses
+    uint16_t vpbatch[n];//g testing batch
 
-    struct tlb vpnums[10];
+    struct tlb vpnums[10];//tlb
 
-    init_lru(vpnums);
-    randomize_pfns(vpns,n);
-    randomize_vpas(vpa,n);
-    //randomize_valid(vpns,n);
+    init_lru(vpnums);//initialising tlb lru bit to 0
+    randomize_pfns(vpns,n);// randomising the page frame values 
+    randomize_vpas(vpa,n);//randomising the the virtual addresses
+    randomize_valid(vpns,n);// randomising the valid bits
     randomize_protect(vpns,n);// 3 bits -RWE hence since we are only doing memory access , if R is 0 it wont be able to access
     
     
@@ -273,7 +265,7 @@ void main()
     int j=0;
     for( i=0;i<n;i++)
     {
-        if (j>6)
+        if (j>15)
         {
             j=0;
         }
@@ -283,6 +275,8 @@ void main()
         
         
     }
+
+    // intialising variables
     clock_t start,end;
     double cpu_time;
     double time;
@@ -291,6 +285,9 @@ void main()
     int shift=10;
     int OFFSET_MASK=0x03ff;
     int PFN_SHIFT=10;
+
+
+    //running without tlb once
     for(i=0;i<n;i++)
     {
         
@@ -344,10 +341,15 @@ void main()
        
     }
     avg_access_time=avg_access_time/counter;
+    double time1=avg_access_time;
     
     printf("\n\naverage access time without tlb : %e\n",avg_access_time);
     printf("\n\n\n");
 
+
+
+
+    //runnin over the same using the tlb
     counter=0;
     avg_access_time=0;
     int delay_clear=-1;
@@ -369,7 +371,6 @@ void main()
         int Success;
         begin:
         Success = TLB_Lookup(vpnums,VPN);
-        printf("%d\n",Success);
         if(Success>=0)
         {
             struct tlb TlbEntry=vpnums[Success];//TLB HIT
@@ -432,10 +433,10 @@ void main()
                 //exit(0);
             }
             sleep(1);
-            TLB_INSERT(VPN,PTE,vpnums);
+            TLB_INSERT(VPN,PTE,vpnums);// function to insert when a miss occurs
             sleep(0.5);
-            goto begin;    
-            //i--;     
+            goto begin;//re look through the tlb after miss    
+                
         }
     
           
@@ -444,6 +445,10 @@ void main()
        
     }
     avg_access_time=avg_access_time/counter;
-    printf("average access time with tlb: %e\n",avg_access_time);
+
+
+    //displaying the two times
+    printf("average access time without tlb: %e\n",time1);
+    printf("average access time with tlb:    %e\n",avg_access_time);
     
 }
