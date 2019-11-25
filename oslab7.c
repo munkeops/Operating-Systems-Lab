@@ -1,6 +1,8 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<inttypes.h>
+#include<unistd.h>
+#include<time.h>
 
 struct map
 {
@@ -170,30 +172,32 @@ void main()
     randomize_pfns(vpns);
     randomize_vpas(vpa);
     randomize_valid(vpns);
-    randomize_protect(vpns);
+    randomize_protect(vpns);// 3 bits -RWE hence since we are only doing memory access , if R is 0 it wont be able to access
     
     int i;
-    
-    int a=4;
-    //binary_printf(a);
-
-    //uint16_t x=0x0c44;
+    clock_t start,end;
+    double cpu_time;
+    double time;
     int shift=10;
     int OFFSET_MASK=0x03ff;
     int PFN_SHIFT=10;
     for(i=0;i<10;i++)
     {
+        
+        start =clock();
         uint16_t VirtualAddress=vpa[i];
         printf("Virtual Address : ");
         binary_printf(VirtualAddress,16);
         int VPN=VirtualAddress>>shift;
         struct map PTE =vpns[VPN];
+        sleep(1);
         if(PTE.Valid==0)
         {
             printf("SEGMENTATION FAULT\n\n");
             continue;
             //exit(0);
         }
+        sleep(1);
         if(CanAccess(PTE.ProtectBits)==0)
         {
             printf("PROTECTION FAULT\n\n");
@@ -202,17 +206,23 @@ void main()
         }
         int offset=VirtualAddress & OFFSET_MASK;
         uint32_t PhysAddr=(PTE.PFN<<PFN_SHIFT)+offset;
+        printf("PROTECTION BITS : ");
+        binary_printf(PTE.ProtectBits,3);
         printf("VPN : ");        
         binary_printf(VPN,6);
         printf("OFFSET : ");        
         binary_printf(offset,10);
         printf("PFN : ");
         binary_printf(PTE.PFN,14);
-        printf("PROTECTION BITS : ");
-        binary_printf(PTE.ProtectBits,3);
+        sleep(2);
         printf("Physical Address : ");
         binary_printf(PhysAddr,24);
-        
+        end=clock();
+        time=end-start;
+        cpu_time=((double)(end-start))/CLOCKS_PER_SEC;
+        //printf("TIME : %e\n",time);
+        printf("CPU TIME : %e\n",cpu_time);        
+
         printf("\n");
        
     }
