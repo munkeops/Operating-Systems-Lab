@@ -40,7 +40,7 @@ int search_vpa(uint16_t* x,int n)
 
 }
 
-void binary_printf(uint16_t n,int size)
+void binary_printf(uint32_t n,int size)
 {
     ;
     uint16_t num=0;
@@ -79,19 +79,23 @@ void binary_printf(uint16_t n,int size)
 }
 void randomize_valid(struct map * vpns)
 {
-    int i;
+    int i,v;
     for(i=0;i<10;i++)
     {
-        vpns[i].Valid=rand()%2;
+        v=rand()%2;
+        vpns[i].Valid=v;
     }
 }
 void randomize_protect(struct map * vpns)
 {
-    int i;
+    int i,k;
     for(i=0;i<10;i++)
     {
-        vpns[i].ProtectBits=rand()%5+3;
+        k=rand()%10;
+        vpns[i].ProtectBits=k;
+
     }
+    
 }
 
 int randomize_pfns(struct map * vpns)
@@ -165,23 +169,11 @@ void main()
 
     randomize_pfns(vpns);
     randomize_vpas(vpa);
+    randomize_valid(vpns);
     randomize_protect(vpns);
     
     int i;
-    for(i=0;i<10;i++)
-    {
-        int n=vpa[i];
-        //print in binary format
-        //binary_printf(n);
-       
-    }
-    for(i=0;i<10;i++)
-    {
-        int n=vpns[i].PFN;
-        //print in binary format
-        //inary_printf(n); 
-       
-    }
+    
     int a=4;
     //binary_printf(a);
 
@@ -202,7 +194,7 @@ void main()
             continue;
             //exit(0);
         }
-        else if(CanAccess(PTE.ProtectBits)==0)
+        if(CanAccess(PTE.ProtectBits)==0)
         {
             printf("PROTECTION FAULT\n\n");
             continue;
@@ -210,23 +202,17 @@ void main()
         }
         int offset=VirtualAddress & OFFSET_MASK;
         uint32_t PhysAddr=(PTE.PFN<<PFN_SHIFT)+offset;
+        printf("VPN : ");        
+        binary_printf(VPN,6);
+        printf("OFFSET : ");        
+        binary_printf(offset,10);
+        printf("PFN : ");
+        binary_printf(PTE.PFN,14);
+        printf("PROTECTION BITS : ");
+        binary_printf(PTE.ProtectBits,3);
         printf("Physical Address : ");
         binary_printf(PhysAddr,24);
-        /*printf("VPN :\t\t\t");
-        binary_printf(vpn,6);
-        printf("PFN :\t\t\t");
-        uint32_t m=vpns[vpn].pfn;
-        binary_printf(m,14);
-        //binary_printf(n);
-        uint32_t pfa=m;
-        binary_printf(pfa,24);
-
-        pfa=pfa<<shift;
-        binary_printf(pfa,24);
-        n=n&0x03ff;
-        pfa=pfa+n;
-        printf("Physical Address :\t");
-        binary_printf(pfa,24);*/
+        
         printf("\n");
        
     }
