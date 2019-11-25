@@ -3,10 +3,12 @@
 #include<sys/types.h>
 #include<unistd.h>
 #include<string.h>
+#include<sys/wait.h>
 int main()
 {
     char str1[100];
     FILE * filePointer; 
+    printf("assuming oslab2.txt exists\n:");
     filePointer = fopen("oslab2.txt","r");
 
     while(fscanf(filePointer, "%[^\n]", str1)==1)
@@ -41,7 +43,7 @@ int main()
             fscanf(filePointer, "%[^\n]", str1);
             //printf("the string : %s \n",str1);
             fseek(filePointer, SEEK_CUR, SEEK_SET+1);
-            wait();
+            wait(NULL);
         }
     }
 

@@ -3,6 +3,8 @@
 #include<sys/types.h>
 #include<unistd.h>
 #include<string.h>
+#include<sys/wait.h>
+
 
 
 int main()
@@ -62,7 +64,7 @@ int main()
             close(mypipe[0]);
             write(mypipe[1],str1,strlen(str1)+1);
             close(mypipe[1]);
-            wait();
+            wait(NULL);
             //return EXIT_SUCCESS;
             //exit(0);
         }

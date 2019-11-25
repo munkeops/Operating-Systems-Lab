@@ -43,7 +43,7 @@ void execute(char * file_name)
         else if(pid<0)
         {
             fprintf(stderr,"error in forking \n");
-            return EXIT_FAILURE;
+            return ;
         }
         else
         {
@@ -94,7 +94,7 @@ void exec(char *s)
     else if(pid<0)
     {
         fprintf(stderr,"error in forking \n");
-        return EXIT_FAILURE;
+        return ;
     }
     else
     {
